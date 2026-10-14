@@ -1,6 +1,6 @@
-const fs=require('fs'),vm=require('vm');const nodes={};const el=()=>({style:{setProperty(){}},classList:{add(){},remove(){}},getContext(){return {}},getBoundingClientRect(){return {width:1100,height:440}}});const env={document:{getElementById(id){return nodes[id]??=el()},querySelectorAll(){return []},addEventListener(){}},localStorage:{getItem(){return 0}},performance:{now(){return 0}},requestAnimationFrame(){},Math};vm.createContext(env);vm.runInContext(fs.readFileSync('dist/game.js','utf8'),env);
+const fs=require('fs'),vm=require('vm');const nodes={};const el=()=>({style:{setProperty(){}},classList:{add(){},remove(){}},getContext(){return new Proxy({}, {get(o,k){return o[k]??(()=>{})}})},getBoundingClientRect(){return {width:1100,height:440}}});const env={document:{getElementById(id){return nodes[id]??=el()},querySelectorAll(){return []},addEventListener(){}},localStorage:{getItem(){return 0}},performance:{now(){return 0}},requestAnimationFrame(){},Math};vm.createContext(env);vm.runInContext(fs.readFileSync('dist/game.js','utf8'),env);
 vm.runInContext(`
-startRound();needed=3;makeBoxes();
+sound=false;startRound();needed=3;makeBoxes();
 if(boxes.length!==4||boxes.filter(b=>b.address===address).length!==3)throw Error('Cargo quota mismatch');
 const original=boxes;const correct=boxes.filter(b=>b.address===address);
 const before=time;const wrong=boxes.find(b=>b.address!==address);
@@ -73,7 +73,7 @@ if(!labelFlags.every(f=>f['scan-ready']&&!f['scan-correct']))throw Error('Manual
 up.scan=2;updateScanReady(0);if(!labelFlags[0]['scan-correct']||labelFlags[1]['scan-correct'])throw Error('Identifier scanner');
 inspection=null;document.querySelectorAll=savedQuery;coins=36;up.scan=1;buyUpgrade('scan');if(coins!==24||up.scan!==2)throw Error('Tier two cost');buyUpgrade('scan');if(coins!==0||up.scan!==3)throw Error('Tier three cost');
 startRound();boxes.find(b=>b.address===address).seq.forEach(input);inspection.pitch=-faceAngles[inspection.face][0];inspection.yaw=-faceAngles[inspection.face][1];inspection.readyAt=0;updateScanReady(0);
-if(inspection||!placement||delivered)throw Error('Automatic scanner did not advance to placement');chooseSpot(deliveryNote);afterFlight();up.scan=1;
+if(!inspection?.scanned||placement)throw Error('Missing scan confirmation');const frozenTime=time;advanceScan(.5);if(!inspection||placement||time!==frozenTime)throw Error('Scan pause too short');advanceScan(.5);if(inspection||!placement||delivered)throw Error('Automatic scanner did not advance to placement');chooseSpot(deliveryNote);afterFlight();up.scan=1;
 for(let i=0;i<100;i++){
  needed=1+i%3;makeBoxes();
  if(boxes.filter(b=>b.address===address).length!==needed)throw Error('Missing parcels');
@@ -82,6 +82,9 @@ for(let i=0;i<100;i++){
  for(let a=0;a<4;a++)for(let b=0;b<4;b++)if(a!==b&&seqs[a].startsWith(seqs[b]))throw Error('Ambiguous completion');
 }
 `,env);console.log('PASS: direct input, similar distractors, point penalties, retained cargo, all parcels collected, next stop, 100 generated trays');
+
+
+
 
 
 

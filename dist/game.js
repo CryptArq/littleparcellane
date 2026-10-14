@@ -1,6 +1,6 @@
-const $=id=>document.getElementById(id),canvas=$('scene'),ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id),canvas=$('scene');let ctx=canvas.getContext('2d');
 const arrows=['↑','↓','←','→'],keymap={ArrowUp:'↑',ArrowDown:'↓',ArrowLeft:'←',ArrowRight:'→',w:'↑',s:'↓',a:'←',d:'→'};
-let state='intro',level=1,score=0,coins=0,delivered=0,stops=0,quota=3,time=60,address=12,needed=2,boxes=[],typed=[],selected=-1,step=0,parcelTime=0,parcelMax=1,streak=0,up={clock:0,sort:0,tip:0,orient:0,scan:1},paused=false,sound=false,audio,offset=0,targetOffset=0,flight=null,particles=[],last=performance.now(),worldTime=0,toastUntil=0;
+let state='intro',level=1,score=0,coins=0,delivered=0,stops=0,quota=3,time=60,address=12,needed=2,boxes=[],typed=[],selected=-1,step=0,parcelTime=0,parcelMax=1,streak=0,up={clock:0,sort:0,tip:0,orient:0,scan:1},paused=false,sound=true,audio,offset=0,targetOffset=0,flight=null,particles=[],last=performance.now(),worldTime=0,toastUntil=0;
 let placement=null,deliveryNote=0,reaction=null;
 const deliverySpots=['Front doorstep','By the side gate','Behind the planter'];
 let routeChoice={id:'standard',name:'Maple Lane',quota:0,time:0,reward:1},routeHistory=[{level:1,id:'standard'}],routeSelection=0;
@@ -32,7 +32,7 @@ function beep(event='on',degree=0){
 
 function toast(s){$('toast').textContent=s;$('toast').classList.add('show');toastUntil=performance.now()+1800}
 function modal(html){$('modal').className=html.includes('garage-shell')?'shop-modal':html.includes('route-screen')?'route-modal':'';$('modal').innerHTML=html;$('overlay').hidden=false}function hide(){$('overlay').hidden=true}
-function intro(){modal('<span class="eyebrow">WELCOME TO THE NEIGHBORHOOD</span><h1>Little parcels.<br>Big delivery energy.</h1><p>A cozy little delivery game. Scan all four boxes, type the arrows on parcels for this house, and keep Maple Lane smiling.</p><div class="step"><b>01</b> Find the address and type its parcel sequence.</div><div class="step"><b>02</b> Rotate the box with WASD to find its label.</div><div class="step"><b>03</b> Scan with Space, then follow the delivery note.</div><button class="primary" id="start">Let’s hit the road →</button>');$('start').onclick=()=>{hide();startRound()}}
+function intro(){modal('<span class="eyebrow">WELCOME TO LITTLE PARCEL LANE</span><h1>Every parcel<br>has its place.</h1><p>Work your way down the street, delivering every parcel for each house. Complete <b>3 stops in 60 seconds</b> to unlock double-point bonus time.</p><div class="step"><b>01 · FIND</b> Read the house number, find matching parcels in your cargo, and type their <strong>arrow sequences</strong>.</div><div class="step"><b>02 · SCAN</b> Rotate the box with <strong>WASD</strong>. Find the label with the correct house number and press <strong>Space</strong> when it highlights. Red means readable, not necessarily correct.</div><div class="step"><b>03 · PLACE</b> Read the delivery note, then use the marked <strong>arrow key</strong> to choose the doorstep, side gate, or planter.</div><p class="intro-footnote">Finish all parcels at a house to count a stop. Between stages, spend tips on upgrades and choose an optional bonus challenge.</p><button class="primary" id="start">Start the route →</button>');$('start').onclick=()=>{beep();hide();startRound()}}
 function startRound(){closeInspection();closePlacement();reaction=null;deliveryNote=Math.floor(Math.random()*3);state='playing';paused=false;delivered=0;stops=0;quota=Math.max(2,baseQuota()+routeChoice.quota);time=60+up.clock*8+routeChoice.time;roundDuration=time;stopErrors=0;stageStats={maxStreak:0,large:0,cleanStops:0,mistakes:0};needed=1+Math.floor(Math.random()*3);selected=-1;step=0;streak=0;makeBoxes();update();if(level===5)toast('Level 5 · longer sequences & old shipping labels')}
 function makeBoxes(){
   const shared=Array.from({length:2},()=>arrows[Math.floor(Math.random()*4)]);
@@ -92,10 +92,37 @@ function buyUpgrade(id){const u=shopUpgrades.find(u=>u.id===id);if(!u)return;con
 function garage(){
  const d=districtInfo();
  const cards=shopUpgrades.map(u=>{const l=up[u.id],cost=upgradeCost(u.id,l),max=l>=u.cap;return '<button class="shop-card" data-up="'+u.id+'" '+(max||coins<cost?'disabled':'')+'><span class="shop-icon">'+u.icon+'</span><span class="shop-type">'+u.type+'</span><h3>'+u.name+'</h3><p>'+u.description+'</p><div class="upgrade-pips">'+Array.from({length:u.cap},(_,i)=>'<i class="'+(i<l?'filled':'')+'"></i>').join('')+'</div><div class="upgrade-effect"><span>'+u.effect(l)+'</span><b>'+ (max?'Fully fitted':'→ '+u.next(l))+'</b></div><span class="buy-line">'+(max?'MAX LEVEL':coins<cost?'Need '+(cost-coins)+' more tips':'Fit upgrade')+'<strong>'+(max?'✓':cost+' ◈')+'</strong></span></button>'}).join('');
- modal('<div class="garage-shell">'+depotScene()+'<div class="shop-header"><div><span class="eyebrow">LANE POST · SERVICE BAY 01</span><h1>The little garage.</h1><p>'+d.name+' · stage '+d.stage+' cleared. Put your hard-earned tips to work.</p></div><div class="wallet"><small>YOUR TIPS</small><strong>◈ '+coins+'</strong><span>Upgrades last this shift</span></div></div><div class="garage-banner"><div class="garage-truck"><div class="gt-box">LANE<br>POST</div><div class="gt-cab"></div><i></i><i></i></div><div><b>Parked. Polished. Ready for more.</b><span>'+stops+' stops completed · '+delivered+' parcels · '+score+' points</span></div><span class="bay-stamp">SERVICE<br>COMPLETE ✓</span></div><div class="shop-grid">'+cards+'</div><div class="shop-footer"><span>Build a truck that suits the way you play.</span><button class="primary" id="next">Dispatch bonus board →</button></div></div>');
- document.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>buyUpgrade(b.dataset.up));$('next').onclick=showRoutes;
+ modal('<div class="garage-shell">'+depotScene()+'<div class="shop-header"><div><span class="eyebrow">LANE POST · SERVICE BAY 01</span><h1>The little garage.</h1><p>'+d.name+' · stage '+d.stage+' cleared. Put your hard-earned tips to work.</p></div><div class="wallet"><small>YOUR TIPS</small><strong>◈ '+coins+'</strong><span>Upgrades last this shift</span></div></div><div class="garage-banner"><canvas id="garage-van" width="220" height="120" aria-label="Your delivery truck"></canvas><div><b>Parked. Polished. Ready for more.</b><span>'+stops+' stops completed · '+delivered+' parcels · '+score+' points</span></div><span class="bay-stamp">SERVICE<br>COMPLETE ✓</span></div><div class="shop-grid">'+cards+'</div><div class="shop-footer"><span>Build a truck that suits the way you play.</span><button class="primary" id="next">Dispatch bonus board →</button></div></div>');
+ renderDepot();document.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>buyUpgrade(b.dataset.up));$('next').onclick=showRoutes;
 }
-function depotScene(){return '<div class="depot-scene"><svg viewBox="0 0 900 220" role="img" aria-label="Miniature brown parcel depot with loading bays, delivery vans, and stacked packages"><defs><g id="depot-van"><rect x="0" y="0" width="89" height="48" rx="3" fill="#553a29"/><path d="M89 2H111L132 27V48H89Z" fill="#63452f"/><path d="M96 8H108L121 27H96Z" fill="#91aaa1"/><path d="M4 34H89" stroke="#c7a45c" stroke-width="3"/><text x="25" y="22" fill="#d6b56e" font-size="10" font-family="sans-serif" font-weight="bold">LANE POST</text><circle cx="23" cy="48" r="11" fill="#323a33"/><circle cx="23" cy="48" r="5" fill="#a8aa99"/><circle cx="108" cy="48" r="11" fill="#323a33"/><circle cx="108" cy="48" r="5" fill="#a8aa99"/></g></defs><rect width="900" height="220" fill="#c2cfad"/><path d="M0 130H900V220H0Z" fill="#b6bca9"/><path d="M165 160L760 148L835 182L215 199Z" fill="#899782" opacity=".4"/><path d="M155 56L665 40L756 77L246 94Z" fill="#6a614e"/><path d="M155 56L246 94V161L155 126Z" fill="#a09172"/><path d="M246 94L756 77V148L246 165Z" fill="#c9ba91"/><path d="M145 54L664 37L769 76L246 98Z" fill="#766e58"/><path d="M246 98L769 76V83L246 105Z" fill="#514d40"/><path d="M282 103L379 100V153L282 157Z M417 99L514 96V149L417 152Z M553 94L650 91V145L553 148Z" fill="#6c7262"/><path d="M289 116L371 113M289 128L371 125M289 140L371 137M424 112L506 109M424 124L506 121M424 136L506 133M560 107L642 104M560 119L642 116M560 131L642 128" stroke="#919680" stroke-width="3"/><rect x="449" y="57" width="183" height="23" rx="2" fill="#553a29"/><text x="465" y="73" font-size="13" font-family="sans-serif" font-weight="bold" letter-spacing="2" fill="#d5b56c">LANE POST DEPOT</text><path d="M272 151V171M386 147V167M541 142V162M659 139V159" stroke="#d8af59" stroke-width="6"/><path d="M272 157V161M386 153V157M541 148V152M659 145V149" stroke="#665c41" stroke-width="6"/><g fill="#bd8c54" stroke="#a67847"><rect x="687" y="133" width="27" height="24"/><rect x="715" y="138" width="32" height="23"/><rect x="701" y="112" width="25" height="23"/></g><path d="M700 134V155M731 139V159M713 113V133" stroke="#e3c18a" stroke-width="6"/><use href="#depot-van" transform="translate(304 144) scale(.9)"/><use href="#depot-van" transform="translate(503 151) scale(.78)"/><path d="M50 201L197 196M714 195L864 190" stroke="#e5dbc0" stroke-width="3" stroke-dasharray="22 14"/><text x="26" y="29" font-family="sans-serif" font-size="10" font-weight="bold" letter-spacing="2" fill="#567047">BACK AT THE DEPOT</text></svg><span>LOAD UP. TUNE UP. HEAD OUT.</span></div>'}
+function depotScene(){return '<div class="depot-scene"><canvas id="depot-canvas" width="900" height="360" aria-label="Isometric parcel depot with loading bays and the same delivery trucks used in the neighborhood"></canvas><span>LANE POST DEPOT · LOAD UP. TUNE UP. HEAD OUT.</span></div>'}
+function renderDepot(){
+ const depot=$('depot-canvas');if(!depot)return;
+ const previous={ctx,W,H,scale};
+ try{
+  ctx=depot.getContext('2d');W=900;H=360;scale=.9;
+  ctx.clearRect(0,0,900,360);ctx.fillStyle='#c2cfad';ctx.fillRect(0,0,900,360);
+  ctx.save();ctx.translate(0,45);
+  ground(-470,-170,1000,470,'#aab4a0');ground(-300,-150,520,145,'#bcbba2');
+  shadow(-230,-130,400,100);cube(-230,-130,0,400,100,90,'#c6b58e');
+  cube(-238,-138,90,416,116,8,'#736957');
+  for(const x of [-198,-75,48]){
+   cube(x,-29,5,84,3,61,'#6a7364');
+   for(let z=15;z<65;z+=11)cube(x,-25,z,84,1,1,'#98a18c');
+   for(const bx of [x-7,x+89]){cube(bx,-17,0,4,4,25,'#d5b35f');cube(bx,-17,10,4,4,4,'#65543c')}
+  }
+  cube(-146,-26,72,234,3,14,'#553a29');faceText('LANE POST DEPOT',-29,-22,75,12,'bold','#d6b36e');
+  for(const x of [-220,-10,200])ground(x,170,95,3,'#ded4b5');
+  cube(171,-5,0,23,22,24,'#bb8e59');cube(199,1,0,25,24,20,'#c39a68');cube(177,-1,24,18,18,18,'#ccaa79');
+  truck(-195,28);truck(3,70);truck(204,115);
+  tree(-337,20,.85);tree(370,-40,.85);
+  ctx.restore();
+ }finally{ctx=previous.ctx;W=previous.W;H=previous.H;scale=previous.scale}
+ const icon=$('garage-van');if(icon){
+  const saved={ctx,W,H,scale};try{ctx=icon.getContext('2d');W=220;H=120;scale=.75;ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(25,8);truck(-45,5);ctx.restore()}finally{ctx=saved.ctx;W=saved.W;H=saved.H;scale=saved.scale}
+ }
+}
+
 function generateChallenges(){
  const next=level+1,target=Math.min(50,40+up.clock*4);
  const pool=[{id:'streak3',type:'streak',title:'In the groove',description:'Deliver 3 packages in a row without a mistake.',target:3,reward:6,icon:'✦'},
@@ -146,6 +173,22 @@ function cube(x,y,z,w,d,h,c){let a=point(x,y,z+h),b=point(x+w,y,z+h),cc=point(x+
 function ground(x,y,w,d,c){poly([point(x,y),point(x+w,y),point(x+w,y+d),point(x,y+d)],c)}
 function shadow(x,y,w,d){ground(x+12,y+10,w,d,'#38543720')}
 function tree(x,y,s=1){shadow(x,y,40*s,40*s);cube(x+15*s,y+15*s,0,10*s,10*s,37*s,'#91734c');cube(x,y,30*s,43*s,43*s,34*s,'#739056');cube(x+5*s,y+5*s,64*s,32*s,32*s,23*s,'#8ca362');}
+function pedestrianBounds(y){
+ // Include both screen axes: recycling happens beyond the entire visible street.
+ const left=(-W*.49-100)/(.82*scale)+y,right=(W*.51+100)/(.82*scale)+y;
+ return {left,right};
+}
+function pedestrianPosition(id,y,direction,t=worldTime,camera=offset){
+ const {left,right}=pedestrianBounds(y),margin=250,span=5000;
+ const phase=id*487+direction*t*(direction>0?12:8);
+ const origin=Math.floor((camera+left-margin-phase)/span)*span+phase;
+ const candidates=[origin,origin+span];
+ return candidates.map(x=>x-camera).filter(x=>x>=left-35&&x<=right+35);
+}
+function drawPedestrians(near){
+ const y=near?290:65,direction=near?-1:1;
+ for(let id=0;id<10;id++)for(const x of pedestrianPosition(id,y,direction))person(x,y,0,id+(near?10:0),direction);
+}
 function person(x,y,t,i,direction=1){
   const bob=0,stride=0;
   const shirt=['#cf8256','#d3af51','#668e91','#a97b79'][((i%4)+4)%4];
@@ -258,8 +301,8 @@ function wheel(cx,y,cz,r=13,depth=12){
  const disk=(radius,color)=>poly(Array.from({length:count},(_,i)=>{const a=i/count*Math.PI*2;return point(cx+Math.cos(a)*radius,y+depth+.3,cz+Math.sin(a)*radius)}),color);
  disk(6.5,'#aaa897');disk(3.5,'#767d71');disk(1.5,'#cac6af');
 }
-function truck(){
- const x=-50,y=100,brown='#553a29',gold='#c5a15b';
+function truck(x=-50,y=100){
+ const brown='#553a29',gold='#c5a15b';
  shadow(x,y,142,68);
  for(const xx of [x+29,x+115]){wheel(xx,y-5,14);wheel(xx,y+54,14);}
  cube(x,y,17,91,60,66,brown);
@@ -290,8 +333,8 @@ function truck(){
 
 }
 
-function draw(){let rect=canvas.getBoundingClientRect(),dpr=devicePixelRatio||1;if(canvas.width!==Math.round(rect.width*dpr)||canvas.height!==Math.round(rect.height*dpr)){canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr)}W=rect.width;H=rect.height;scale=Math.max(.6,Math.min(1.1,W/1100));ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle=['#bfd0a0','#b9c9a3','#c4c7b9'][districtInfo().region];ctx.fillRect(0,0,W,H);ground(-1500,30,3000,75,'#d8d0b8');ground(-1500,105,3000,155,'#8d9690');ground(-1500,260,3000,18,'#d7d1b9');for(let i=-9;i<10;i++)ground(i*100-offset%100,180,43,4,'#d9d5b9');for(let i=Math.floor(offset/340)-4;i<Math.floor(offset/340)+6;i++){let {x,number}=housePosition(i);house(x,-150,number,i);if(i%2)tree(x+235,-110,.95);person(x+180+(worldTime*12+i*60)%90,65,worldTime,i+8)}truck();for(let i=-4;i<5;i++){let x=i*270-offset%270;tree(x,325,1.1);ground(x+65,290,57,45,'#a8bd86');if(i%2===0)person(x+120-(worldTime*8)%90,290,worldTime,i+10,-1)}if(flight){let t=flight.t/.65,a=point(5,125,60),b=spotPoint(flight.target,flight.house);let x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t-Math.sin(t*Math.PI)*95*scale;ctx.save();ctx.translate(x,y);ctx.rotate(t*5);ctx.fillStyle='#bd8c50';ctx.fillRect(-10,-10,20,20);ctx.fillStyle='#ead1a0';ctx.fillRect(-3,-10,6,20);ctx.restore()} }
-function tick(now){let dt=Math.min((now-last)/1000,.05);last=now;if(!paused){worldTime+=dt;offset+=(targetOffset-offset)*Math.min(1,dt*4);if(Math.abs(targetOffset-offset)<.1)offset=targetOffset;if(state==='playing'){time=Math.max(0,time-dt);if(typed.length&&!inspection){parcelTime-=dt;document.querySelectorAll('.box.selected .bar i').forEach(bar=>bar.style.width=Math.max(0,parcelTime/parcelMax*100)+'%');if(parcelTime<=0)retry('Parcel timer expired · try again')}if(flight){flight.t+=dt;if(flight.t>=.65)afterFlight()}checkChallenge();if(time<=0)endRound();update()}}if(now>toastUntil)$('toast').classList.remove('show');draw();positionTargets();updateScanReady(now);requestAnimationFrame(tick)}
+function draw(){let rect=canvas.getBoundingClientRect(),dpr=devicePixelRatio||1;if(canvas.width!==Math.round(rect.width*dpr)||canvas.height!==Math.round(rect.height*dpr)){canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr)}W=rect.width;H=rect.height;scale=Math.max(.6,Math.min(1.1,W/1100));ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle=['#bfd0a0','#b9c9a3','#c4c7b9'][districtInfo().region];ctx.fillRect(0,0,W,H);ground(-1500,30,3000,75,'#d8d0b8');ground(-1500,105,3000,155,'#8d9690');ground(-1500,260,3000,18,'#d7d1b9');for(let i=-9;i<10;i++)ground(i*100-offset%100,180,43,4,'#d9d5b9');for(let i=Math.floor(offset/340)-4;i<Math.floor(offset/340)+6;i++){let {x,number}=housePosition(i);house(x,-150,number,i);if(i%2)tree(x+235,-110,.95);}drawPedestrians(false);truck();drawPedestrians(true);for(let i=-4;i<5;i++){let x=i*270-offset%270;tree(x,325,1.1);ground(x+65,290,57,45,'#a8bd86');}if(flight){let t=flight.t/.65,a=point(5,125,60),b=spotPoint(flight.target,flight.house);let x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t-Math.sin(t*Math.PI)*95*scale;ctx.save();ctx.translate(x,y);ctx.rotate(t*5);ctx.fillStyle='#bd8c50';ctx.fillRect(-10,-10,20,20);ctx.fillStyle='#ead1a0';ctx.fillRect(-3,-10,6,20);ctx.restore()} }
+function tick(now){let dt=Math.min((now-last)/1000,.05);last=now;if(!paused){worldTime+=dt;offset+=(targetOffset-offset)*Math.min(1,dt*4);if(Math.abs(targetOffset-offset)<.1)offset=targetOffset;if(state==='playing'){if(inspection?.scanned)advanceScan(dt);else time=Math.max(0,time-dt);if(typed.length&&!inspection){parcelTime-=dt;document.querySelectorAll('.box.selected .bar i').forEach(bar=>bar.style.width=Math.max(0,parcelTime/parcelMax*100)+'%');if(parcelTime<=0)retry('Parcel timer expired · try again')}if(flight){flight.t+=dt;if(flight.t>=.65)afterFlight()}checkChallenge();if(time<=0)endRound();update()}}if(now>toastUntil)$('toast').classList.remove('show');draw();positionTargets();updateScanReady(now);requestAnimationFrame(tick)}
 
 let inspection=null;
 const faceAngles=[[0,0],[0,180],[0,90],[0,-90],[90,0],[-90,0]];
@@ -310,9 +353,9 @@ function beginInspection(){
  $('parcel3d').style.setProperty('--box-scale',[.83,1,1.12][b.size]);
  $('barcode').onclick=scanBarcode;applyRotation();renderBoxes();
 }
-function closeInspection(){inspection=null;if($('inspection'))$('inspection').hidden=true}
+function closeInspection(){inspection=null;$('inspection').classList.remove('scan-confirmed');if($('inspection'))$('inspection').hidden=true}
 function rotatePackage(key){
- if(!inspection||paused||state!=='playing')return;
+ if(!inspection||inspection.scanned||paused||state!=='playing')return;
  if(key==='a')inspection.yaw-=45;if(key==='d')inspection.yaw+=45;
  if(key==='w')inspection.pitch+=45;if(key==='s')inspection.pitch-=45;
  inspection.readyAt=performance.now()+200;applyRotation();
@@ -324,7 +367,7 @@ function labelFacing(threshold=.45,face=inspection?.face){
  const nx=Math.sin(fy)*Math.cos(fx),ny=-Math.sin(fx),nz=Math.cos(fy)*Math.cos(fx);
  return ny*Math.sin(p)+(-nx*Math.sin(y)+nz*Math.cos(y))*Math.cos(p)>threshold;
 }
-function updateScanReady(now=performance.now()){
+function updateScanReady(now=performance.now()){if(inspection?.scanned){$('scan-action').textContent='Scanned ✓ · clock paused';return;}
  const enabled=!!inspection&&!paused&&state==='playing'&&now>=inspection.readyAt;
  let anyReady=false,correctReady=false;
  document.querySelectorAll('[data-scan-face]').forEach(label=>{
@@ -337,18 +380,23 @@ function updateScanReady(now=performance.now()){
  if(enabled&&up.scan>=3&&labelFacing())scanBarcode();
 }
 function scanBarcode(){
- if(!inspection||paused||state!=='playing')return;if(performance.now()<inspection.readyAt)return;if(!labelFacing()){
+ if(!inspection||inspection.scanned||paused||state!=='playing')return;if(performance.now()<inspection.readyAt)return;if(!labelFacing()){
   if(inspection.decoys?.some(f=>labelFacing(undefined,f))){recordMistake();score-=25;streak=0;inspection.readyAt=performance.now()+650;beep('error');toast('Old label! Match house '+address+' · −25 points');update()}
   else toast('Turn the shipping label toward you');
   return;
  }
- const index=inspection.index;closeInspection();beep('scan');beginPlacement(index);
+ const index=inspection.index;beep('scan');if(up.scan>=3){inspection.scanned=true;inspection.remaining=1;$('inspection').classList.add('scan-confirmed');$('scan-size').textContent='SCANNED ✓ · CLOCK PAUSED';return;}closeInspection();beginPlacement(index);
 }
 
 
 function spotPoint(spot,house=address){
  const x=housePosition((house-12)/2).x;
  return [point(x+58,-42,8),point(x+195,-35,8),point(x+1,-30,15)][spot];
+}
+function advanceScan(dt){
+ if(!inspection?.scanned||paused||state!=='playing')return;
+ inspection.remaining-=dt;
+ if(inspection.remaining<=0){const index=inspection.index;closeInspection();beginPlacement(index)}
 }
 function beginPlacement(index){placement={index};$('placement').hidden=false;renderBoxes();positionTargets();toast('Scanned! '+deliverySpots[deliveryNote])}
 function closePlacement(){placement=null;$('placement').hidden=true}
@@ -375,6 +423,12 @@ $('scan-action').onclick=scanBarcode;
 
 
 document.querySelectorAll('[data-spot]').forEach(b=>b.onclick=()=>chooseSpot(+b.dataset.spot));
+
+
+
+
+
+
 
 
 
