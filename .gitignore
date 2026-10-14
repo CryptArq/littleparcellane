@@ -1,0 +1,8 @@
+.openai/
+game.tar.gz
+node_modules/
+/*.cjs
+!check.cjs
+!check-render.cjs
+!check-sorting.cjs
+!preview.cjs
